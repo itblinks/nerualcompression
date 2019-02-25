@@ -1,0 +1,10 @@
+scikit-image
+cv2
+numpy
+tensorflow==1.12
+yaml
+h5py
+pandas
+hashlib
+matplotlib
+gzip

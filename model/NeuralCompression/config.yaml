@@ -1,0 +1,23 @@
+#NetworkCompression ConfigFile
+---
+model:
+  conv_size: 2
+  kernel_size: [[5, 5], [5, 5]]
+  num_filter: [32, 64]
+  pool_size: [[2, 2], [2, 2]]
+  conv_stride: [1, 1]
+  dense_depth: 1
+  dense_neurons: [128]
+  dropout_factor: [0.4, 0.0]
+quantization:
+  quant_w_params:
+    quant_conv:         [True ,True ,True ,True ,True ,True ,True ]
+    quant_dense:        [True ,True ,True ,True ,True ,True ,True ]
+    num_bin_filt_conv:  [0    ,1    ,2    ,3    ,4    ,5    ,6    ]
+    num_bin_filt_dense: [0    ,1    ,2    ,3    ,4    ,5    ,6    ]
+    paper_approach:     [False,False,False,False,False,False,False]
+    pow_of_two:         [False,False,False,False,False,False,False]
+    bin_quant:          [False,True ,True ,True ,True ,True ,True ]
+    log_quant:          [True ,False,False,False,False,False,False]
+  quant_act_format: [[0.0, 0.99609375, 8],[0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 31.875, 8], [-31.75, 32, 8]]
+dataset: GTSRB48x48
