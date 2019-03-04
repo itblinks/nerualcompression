@@ -3,8 +3,41 @@ import numpy as np
 from backend.CNN_ImageDataHandler import CNN_ImageDataHandler
 from skimage import exposure
 import h5py
+import os, sys, pathlib
+import requests
+
 
 def loadGTSRB48x48(raw=False):
+    try:
+        os.scandir('../../dataset/GTSRB48x48')
+        f = open('../../dataset/GTSRB48x48/dataset_GTSRB_original_48_train.h5')
+        f.close()
+        f = open('../../dataset/GTSRB48x48/dataset_GTSRB_original_48_test.h5')
+        f.close()
+    except FileNotFoundError:
+        pathlib.Path('../../dataset/GTSRB48x48').mkdir(parents=True, exist_ok=True)
+        GTSRB48x48_files = {
+            'dataset_GTSRB_original_48_train.h5': 'https://drive.switch.ch/index.php/s/i6yH9BzFu3UYbi5/download',
+            'dataset_GTSRB_original_48_test.h5': 'https://drive.switch.ch/index.php/s/xjwc8IeHBBBGYTu/download'}
+        for file_name, link in GTSRB48x48_files.items():
+            with open('../../dataset/GTSRB48x48/' + file_name, "wb") as f:
+                print("Downloading %s" % file_name)
+                response = requests.get(link, stream=True)
+                total_length = response.headers.get('content-length')
+
+                if total_length is None:  # no content length header
+                    f.write(response.content)
+                else:
+                    dl = 0
+                    total_length = int(total_length)
+                    for data in response.iter_content(chunk_size=4096):
+                        dl += len(data)
+                        f.write(data)
+                        done = int(50 * dl / total_length)
+                        sys.stdout.write("\r[%s%s%s]" % ('=' * done, '>', ' ' * (50 - done)) + "%3.2f" % (100*dl/total_length) + "%")
+                        sys.stdout.flush()
+                    sys.stdout.write("\n")
+                    f.close()
     training_file = '../../dataset/GTSRB48x48/dataset_GTSRB_original_48_train.h5'
     testing_file = '../../dataset/GTSRB48x48/dataset_GTSRB_original_48_test.h5'
     # Load the training data from the h5 files
@@ -101,6 +134,7 @@ def loaderDictionary(datasetName):
     }
     return switcher.get(datasetName, "Invalid Data Set")
 
+
 # Define data loaders #####################################
 
 class IteratorInitializerHook(tf.train.SessionRunHook):
@@ -117,7 +151,7 @@ class IteratorInitializerHook(tf.train.SessionRunHook):
 
 class Dataset:
 
-    def __init__(self, dataset_name, lables_dtype=np.int32, use_data_api = True):
+    def __init__(self, dataset_name, lables_dtype=np.int32, use_data_api=True):
         # load the dataset according to the datasetName
         self.dataset_name = dataset_name
         if use_data_api:
@@ -172,4 +206,3 @@ class Dataset:
 
         # Return function and hook
         return train_inputs, iterator_initializer_hook
-
