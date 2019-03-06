@@ -118,7 +118,7 @@ def main():
     template = ('\n"{}"({:.1f}%)')
     prediction = estimator.predict(input_fn=input_pred)
 
-    annotations = '../../dataset/Wheels_negative_extended/signnames.csv'
+    annotations = '../../dataset/GTSRB48x48/signnames.csv'
 
     classes = pd.read_csv(annotations)
     class_names = {}

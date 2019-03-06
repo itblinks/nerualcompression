@@ -118,7 +118,7 @@ def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, a
                 inputs=inputs,
                 filters=filters,
                 kernel_size=kernel_size,
-                padding=('same' if strides == 1 else 'VALID'),
+                padding=('valid' if strides == 1 else 'VALID'),
                 activation=act,
                 use_bias=True)
             c2_vars = tf.trainable_variables()

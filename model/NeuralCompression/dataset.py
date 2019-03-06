@@ -14,11 +14,14 @@ def loadGTSRB48x48(raw=False):
         f.close()
         f = open('../../dataset/GTSRB48x48/dataset_GTSRB_original_48_test.h5')
         f.close()
+        f = open('../../dataset/GTSRB48x48/signnames.csv')
+        f.close
     except FileNotFoundError:
         pathlib.Path('../../dataset/GTSRB48x48').mkdir(parents=True, exist_ok=True)
         GTSRB48x48_files = {
             'dataset_GTSRB_original_48_train.h5': 'https://drive.switch.ch/index.php/s/i6yH9BzFu3UYbi5/download',
-            'dataset_GTSRB_original_48_test.h5': 'https://drive.switch.ch/index.php/s/xjwc8IeHBBBGYTu/download'}
+            'dataset_GTSRB_original_48_test.h5': 'https://drive.switch.ch/index.php/s/xjwc8IeHBBBGYTu/download',
+            'signnames.csv': 'https://drive.switch.ch/index.php/s/1a8djL7P9l2cFeo/download'}
         for file_name, link in GTSRB48x48_files.items():
             with open('../../dataset/GTSRB48x48/' + file_name, "wb") as f:
                 print("Downloading %s" % file_name)
