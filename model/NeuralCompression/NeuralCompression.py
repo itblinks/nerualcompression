@@ -10,7 +10,7 @@ import csv
 
 batch_size = 32
 buffer_size = 180000
-num_epochs = 80
+num_epochs = 40
 train = True
 eval_quant = False
 k = 1
