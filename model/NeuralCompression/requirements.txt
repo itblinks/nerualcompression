@@ -1,11 +1,8 @@
 scikit-image
-cv2
 numpy
-tensorflow==1.12
-yaml
+tensorflow
+PyYaml
 h5py
 pandas
-hashlib
 matplotlib
-gzip
 requests
