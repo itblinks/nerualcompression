@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os, sys, glob
 import re
+import ast
 from models.ClassicCNN import compression
 
 
@@ -98,7 +99,7 @@ def dense_layer(input_tensor, input_dim, output_dim, layer_name, act=tf.nn.relu)
             return activations
 
 
-def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, act=tf.nn.relu):
+def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, padding, act=tf.nn.relu):
     """Reusable code for making a convolution neural net layer.
 
     It does a 2d matrix convolution with separate bias add, and then uses relu to nonlinearize.
@@ -118,7 +119,7 @@ def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, a
                 inputs=inputs,
                 filters=filters,
                 kernel_size=kernel_size,
-                padding=('valid' if strides == 1 else 'VALID'),
+                padding=padding,
                 activation=act,
                 use_bias=True)
             c2_vars = tf.trainable_variables()
@@ -131,20 +132,22 @@ def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, a
 class Model(object):
 
     def __init__(self, conv_size, kernel_size, num_filter, pool_size, pool_stride, conv_stride,
-                 data_format, dense_depth, dense_neurons, dropout, num_classes, quant_act_format):
-        self.conv_size = conv_size
-        self.kernel_size = kernel_size
-        self.num_filter = num_filter
-        self.dense_depth = dense_depth
-        self.dense_neurons = dense_neurons
-        self.dropout = dropout
-        self.pool_size = pool_size
-        self.pool_stride = pool_stride
-        self.conv_stride = conv_stride
-        self.data_format = data_format
-        self.num_classes = num_classes
-        self.quant_act_format = quant_act_format
-
+                 data_format, dense_depth, dense_neurons, dropout, num_classes, quant_act_format, ID, parseID, arch_file):
+        self.__conv_size = conv_size
+        self.__kernel_size = kernel_size
+        self.__num_filter = num_filter
+        self.__dense_depth = dense_depth
+        self.__dense_neurons = dense_neurons
+        self.__dropout = dropout
+        self.__pool_size = pool_size
+        self.__pool_stride = pool_stride
+        self.__conv_stride = conv_stride
+        self.__data_format = data_format
+        self.__num_classes = num_classes
+        self.__quant_act_format = quant_act_format
+        self.__ID = ID
+        self.__parseID = parseID
+        self.__arch_file = arch_file
     def _model_variable_scope(self):
         """Returns a variable scope that the model should be created under.
         If self.dtype is a castable type, model variable will be created in fp32
@@ -156,54 +159,133 @@ class Model(object):
         return tf.variable_scope('ClassicCNN',
                                  custom_getter=self._custom_dtype_getter)
 
-    def predict(self, inputs, training, quant_act, quant_act_format):
-        if quant_act:
+    def parseNetworkArchitecture(self, inputs, training, quant_act=False,
+                                 quant_act_format=None):
+        if self.__parseID:
+            # parse the arch file to get a list with all needed layers
+            raw_arch_file = open(self.__arch_file)
+            for i, line in enumerate(raw_arch_file):
+                if i == self.__ID:
+                    rawID = line
+
+            raw_splitted = rawID.split('___')
+            layer_list = list()
+            for i, raw_layer in enumerate(raw_splitted):
+                if i != 0:  # ignore first line, this only contains the ID
+                    # separate at the first { where the type ends. Add a {, since it is removed by the split method
+                    layer_list.append(ast.literal_eval('{' + raw_layer.split('{')[1]))
+                    layer_list[i - 1]['Type'] = raw_layer.split('{')[0]  # Add the type back to the dictionary
+
+            count_layer_types = {'C': 0, 'D': 0, 'Drop': 0, 'F': 0}
             act_nr = 0
-            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                  quant_act_format[act_nr][1],
-                                                                  quant_act_format[act_nr][2])
-            act_nr += 1
-        with tf.name_scope('Convolution'):
-            for i, curr_kernel_size in enumerate(self.kernel_size):
-                with tf.variable_scope('conv2d_{}'.format(i + 1)):
-                    inputs = conv_layer(inputs=inputs, filters=self.num_filter[i], kernel_size=curr_kernel_size,
-                                        strides=self.conv_stride[i], data_format=self.data_format,
-                                        layer_name='conv2d'.format(i + 1), act=tf.nn.relu)
-                    inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=self.pool_stride[:][i],
-                                                     strides=self.pool_stride[:][i])
-                    if quant_act:
-                        inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                              quant_act_format[act_nr][1],
-                                                                              quant_act_format[act_nr][2])
-                        act_nr += 1
 
-        with tf.name_scope('Dense'):
-            inputs = tf.layers.flatten(inputs)
+            # parse the input
+            for i, layer in enumerate(layer_list):
 
-            inputs = tf.layers.dropout(inputs, rate=self.dropout[0],
-                                       training=training == tf.estimator.ModeKeys.TRAIN)
+                # check if layer is conv type
+                if layer['Type'] == 'C':
+                    with tf.name_scope('Convolution'):
+                        with tf.variable_scope('conv_2d_{}'.format(count_layer_types['C'] + 1)):
+                            inputs = conv_layer(inputs=inputs, filters=layer['nbr_of_filters'],
+                                                kernel_size=layer['kernel_size'],
+                                                strides=layer['stride'], data_format=tf.float32,
+                                                layer_name='conv2d'.format(i + 1), padding=layer['padding'],
+                                                act=tf.nn.relu)
+                            count_layer_types['C'] += 1
 
-            for i in range(self.dense_depth):
-                with tf.variable_scope('dense_{}'.format(i + 1)):
-                    inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
-                                         output_dim=self.dense_neurons[i], layer_name='dense_{}'.format(i + 1),
-                                         act=tf.nn.relu)
-                    inputs = tf.layers.dropout(inputs, rate=self.dropout[i + 1],
+                            if quant_act:
+                                inputs = tf.quantization.fake_quant_with_min_max_vars(inputs,
+                                                                                      quant_act_format[act_nr][0],
+                                                                                      quant_act_format[act_nr][1],
+                                                                                      quant_act_format[act_nr][2])
+                                act_nr += 1
+
+                # check if layer is pool type
+                elif layer['Type'] == 'P':
+                    with tf.name_scope('Convolution'):
+                        with tf.variable_scope('conv_2d_{}'.format(count_layer_types['C'] )):
+                            inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=layer['pool_size'],
+                                                             strides=layer['stride'], padding=layer['padding'])
+
+                # check if layer is dropout type
+                elif layer['Type'] == 'Drop':
+                    inputs = tf.layers.dropout(inputs, rate=layer['dropout_rate'],
                                                training=training == tf.estimator.ModeKeys.TRAIN)
-                    if quant_act:
-                        inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                              quant_act_format[act_nr][1],
-                                                                              quant_act_format[act_nr][2])
-                        act_nr += 1
 
-            inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
-                                 output_dim=self.num_classes,
-                                 layer_name='logits', act=tf.identity)
+                # check if layer is dense type
+                elif layer['Type'] == 'D':
+                    # check if it is the last dense layer e.g the logits layer
+                    with tf.name_scope('Dense'):
+                        if i != len(layer_list)-1:
+                            with tf.variable_scope('dense_{}'.format(count_layer_types['D'] + 1)):
+                                    inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
+                                                         output_dim=layer['nbr_of_neurons'],
+                                                         layer_name='dense_{}'.format(count_layer_types['D'] + 1),
+                                                         act=tf.nn.relu)
+                                    count_layer_types['D'] += 1
+
+                                    if layer['hasDropOut']:
+                                        inputs = tf.layers.dropout(inputs, rate=self.__dropout[0],
+                                                                   training=training == tf.estimator.ModeKeys.TRAIN)
+                        else:
+                            inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
+                                         output_dim=self.__num_classes,
+                                         layer_name='logits', act=tf.identity)
+
+                # check if layer is flatten
+                elif layer['Type'] == 'F':
+                    with tf.name_scope('Dense'):
+                        inputs = tf.layers.flatten(inputs)
+                else:
+                    raise NotImplementedError('This layer is not implementet in the layer list: ' + layer['Type'])
+        else:
             if quant_act:
+                act_nr = 0
                 inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
                                                                       quant_act_format[act_nr][1],
                                                                       quant_act_format[act_nr][2])
                 act_nr += 1
+            with tf.name_scope('Convolution'):
+                for i, curr_kernel_size in enumerate(self.__kernel_size):
+                    with tf.variable_scope('conv2d_{}'.format(i + 1)):
+                        inputs = conv_layer(inputs=inputs, filters=self.__num_filter[i], kernel_size=curr_kernel_size,
+                                            strides=self.__conv_stride[i], data_format=self.__data_format,
+                                            layer_name='conv2d'.format(i + 1), act=tf.nn.relu, padding='valid')
+                        inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=self.__pool_stride[:][i],
+                                                         strides=self.__pool_stride[:][i])
+                        if quant_act:
+                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
+                                                                                  quant_act_format[act_nr][1],
+                                                                                  quant_act_format[act_nr][2])
+                            act_nr += 1
+
+            with tf.name_scope('Dense'):
+                inputs = tf.layers.flatten(inputs)
+
+                inputs = tf.layers.dropout(inputs, rate=self.__dropout[0],
+                                           training=training == tf.estimator.ModeKeys.TRAIN)
+
+                for i in range(self.__dense_depth):
+                    with tf.variable_scope('dense_{}'.format(i + 1)):
+                        inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
+                                             output_dim=self.__dense_neurons[i], layer_name='dense_{}'.format(i + 1),
+                                             act=tf.nn.relu)
+                        inputs = tf.layers.dropout(inputs, rate=self.__dropout[i + 1],
+                                                   training=training == tf.estimator.ModeKeys.TRAIN)
+                        if quant_act:
+                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
+                                                                                  quant_act_format[act_nr][1],
+                                                                                  quant_act_format[act_nr][2])
+                            act_nr += 1
+
+                inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
+                                     output_dim=self.__num_classes,
+                                     layer_name='logits', act=tf.identity)
+                if quant_act:
+                    inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
+                                                                          quant_act_format[act_nr][1],
+                                                                          quant_act_format[act_nr][2])
+                    act_nr += 1
             return inputs
 
     def classiccnn_model_fn(self, features, labels, mode, params):
@@ -213,8 +295,8 @@ class Model(object):
         net = tf.feature_column.input_layer(features, params['feature_columns'])
         net = tf.reshape(net, shape=[-1] + list(params['feature_columns'].shape))
 
-        logits = self.predict(inputs=net, training=mode, quant_act=params['quant_act'],
-                              quant_act_format=self.quant_act_format)
+        logits = self.parseNetworkArchitecture(inputs=net, training=mode, quant_act=params['quant_act'],
+                                               quant_act_format=self.__quant_act_format)
         logits = tf.cast(logits, tf.float32)
 
         predictions = {
@@ -296,7 +378,7 @@ class Model(object):
             saver.restore(sess, os.path.splitext(last_graph)[0])
 
             if quant_param['quant_conv'] is True:
-                for i in range(self.conv_size):
+                for i in range(self.__conv_size):
                     conv_kernel_tensor = tf.trainable_variables(
                         scope='conv2d_{}'.format(i + 1))  # first tensor are kernel weights in this model
                     conv_weights = conv_kernel_tensor[0].eval()
@@ -316,7 +398,7 @@ class Model(object):
                         conv_weights_approx, _ = compression.log_approx(conv_weights, result_plots=False)
                     conv_kernel_tensor[0].load(conv_weights_approx, sess)
             if quant_param['quant_dense'] is True:
-                for i in range(self.dense_depth):
+                for i in range(self.__dense_depth):
                     dense_weights_tensor = tf.trainable_variables(
                         scope='Dense/dense_{}'.format(i + 1))  # first tensor are kernel weights in this model
                     dense_weights = dense_weights_tensor[0].eval()

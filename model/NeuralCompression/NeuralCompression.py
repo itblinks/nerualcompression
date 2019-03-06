@@ -11,9 +11,10 @@ import csv
 batch_size = 32
 buffer_size = 180000
 num_epochs = 80
-train = False
+train = True
 eval_quant = False
 k = 1
+
 
 def main():
     # import yaml config file to set up network
@@ -22,10 +23,14 @@ def main():
     dataset = Dataset(data.get("dataset"), use_data_api=False)
     data_format = dataset.data_format
     num_classes = dataset.num_classes
+    parseID = data.get("model").get("parseID")
+    ID = data.get("model").get("ID")
+    arch_file = data.get("model").get("arch_file")
     conv_size = data.get("model").get("conv_size")
     kernel_size = data.get("model").get("kernel_size")
     num_filter = data.get("model").get("num_filter")
     pool_size = data.get("model").get("pool_size")
+    pool_stride = data.get("model").get("pool_stride")
     conv_stride = data.get("model").get("conv_stride")
     dense_depth = data.get("model").get("dense_depth")
     dense_neurons = data.get("model").get("dense_neurons")
@@ -39,10 +44,10 @@ def main():
     digest = hashfun.hexdigest()
     print('The model-config has hash: {}'.format(digest))
 
-    model = CNNModel(conv_size=conv_size, kernel_size=kernel_size, num_filter=num_filter, pool_size=pool_size,
+    model = CNNModel(conv_size=conv_size, kernel_size=kernel_size, num_filter=num_filter, pool_size=pool_size, pool_stride = pool_stride,
                      conv_stride=conv_stride, data_format=data_format, dense_depth=dense_depth,
                      dense_neurons=dense_neurons, dropout=dropout_factor, num_classes=num_classes,
-                     quant_act_format=quant_act_format)
+                     quant_act_format=quant_act_format, ID=ID, parseID=parseID, arch_file= arch_file)
 
     feature_column = tf.feature_column.numeric_column(key='image',
                                                       shape=dataset.train[0]['image'].shape[1:])
@@ -66,7 +71,8 @@ def main():
                                                    'decay_steps': 12800},
                                            config=my_checkpointing_config, model_dir=model_dir)
 
-        input_train, train_input_hook = dataset.get_train_inputs(batch_size=batch_size, buffer_size=buffer_size,num_epochs=num_epochs)
+        input_train, train_input_hook = dataset.get_train_inputs(batch_size=batch_size, buffer_size=buffer_size,
+                                                                 num_epochs=num_epochs)
         train_specs = tf.estimator.TrainSpec(input_fn=input_train, hooks=[train_input_hook])
         eval_specs = tf.estimator.EvalSpec(input_fn=input_eval, throttle_secs=10)
         tf.estimator.train_and_evaluate(estimator, train_specs, eval_specs)
@@ -108,7 +114,7 @@ def main():
             csv_writer.writerow(q_param)
 
     serving_input_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(
-          {'image': tf.FixedLenFeature(shape=dataset.train[0]['image'].shape, dtype=tf.float32)})
+        {'image': tf.FixedLenFeature(shape=dataset.train[0]['image'].shape, dtype=tf.float32)})
     estimator.export_saved_model(model_dir + '_quantized', serving_input_fn)
 
     fig = plt.figure(figsize=(15, 15))
@@ -116,7 +122,7 @@ def main():
     rows = 5
 
     template = ('\n"{}"({:.1f}%)')
-    prediction = estimator.predict(input_fn=input_pred)
+    prediction = estimator.parseNetworkArchitecture(input_fn=input_pred)
 
     annotations = '../../dataset/GTSRB48x48/signnames.csv'
 
@@ -137,6 +143,7 @@ def main():
     plt.show()
 
     print('Evaluation before Quantization: {}'.format(evaluation_pre))
+
 
 if __name__ == '__main__':
     main()

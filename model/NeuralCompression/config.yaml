@@ -1,6 +1,9 @@
 #NetworkCompression ConfigFile
 ---
 model:
+  parseID: True
+  ID: 505
+  arch_file: models/architectures/arch_log.txt
   conv_size: 2
   kernel_size: [[7, 7], [4, 4]]
   num_filter: [48, 250, 250]

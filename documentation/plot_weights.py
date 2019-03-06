@@ -1,8 +1,6 @@
-# General syntax to import a library but no functions:
-##import (library) as (give the library a nickname/alias)
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd  # this is how I usually import pandas
+import pandas as pd
 import sys  # only needed to determine Python version number
 import os
 
