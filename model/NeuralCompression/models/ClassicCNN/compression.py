@@ -32,7 +32,9 @@ def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_a
 
 
 def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_pow_two=False):
-    binary_filter = np.zeros((np.shape(weights)[0], num_binary_filter))
+    M_max = 3
+    RUN_MAX = 1000
+    binary_filter = np.zeros((np.shape(weights)[0], M_max))
     binary_filter_old = np.ones_like(weights)
     weights_new = np.copy(weights)
 
@@ -41,22 +43,29 @@ def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_p
             u_i = -1 + i * 2 / (num_binary_filter - 1)
             binary_filter[:, i] = np.sign(weights_new - np.mean(weights_new) + u_i * np.std(weights_new))
     else:
-        for i in range(num_binary_filter):
+        for i in range(M_max):
             binary_filter[:, i] = ((weights_new >= 0).astype(float) * 2 - 1) * binary_filter_old
             weights_new = np.abs(weights_new)
             weights_new = weights_new - np.mean(weights_new)
             binary_filter_old = binary_filter[:, i]
 
-        for i in range(20):
+        binary_filter_opt = np.copy(binary_filter)
+        stop_cond = False
+        runs = 0
+        while not stop_cond:
+            binary_filter = np.copy(binary_filter_opt)
             a_new = np.linalg.lstsq(binary_filter, weights, rcond=None)[0]
-            binary_filter = np.zeros((np.shape(weights)[0], num_binary_filter))
             binary_filter_old = np.ones_like(weights)
             weights_new = np.copy(weights)
-            for i in range(num_binary_filter):
-                binary_filter[:, i] = ((weights_new >= 0).astype(float) * 2 - 1) * binary_filter_old
+            for i in range(M_max):
+                binary_filter_opt[:, i] = ((weights_new >= 0).astype(float) * 2 - 1) * binary_filter_old
                 weights_new = np.abs(weights_new)
                 weights_new = weights_new - a_new[i]
-                binary_filter_old = binary_filter[:, i]
+                binary_filter_old = binary_filter_opt[:, i]
+            if np.array_equal(binary_filter, binary_filter_opt) or runs > RUN_MAX:
+                stop_cond = True
+            else:
+                runs += 1
 
     if use_pow_two:
         shift = np.floor(np.log(np.abs(a_new)*4.0/3.0) / np.log(2.0))
@@ -85,6 +94,5 @@ def log_approx(W, result_plots=False):
     SSerror = np.sum(np.power(W_est - W, 2))
     return W_est, SSerror
 
-
 if __name__ == '__main__':
-    m_fold_binary_approx(np.random.rand(32), 3)
+    m_fold_binary_approx(np.random.rand(1000), 3)
