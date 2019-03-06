@@ -130,7 +130,7 @@ def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, a
 
 class Model(object):
 
-    def __init__(self, conv_size, kernel_size, num_filter, pool_size, conv_stride,
+    def __init__(self, conv_size, kernel_size, num_filter, pool_size, pool_stride, conv_stride,
                  data_format, dense_depth, dense_neurons, dropout, num_classes, quant_act_format):
         self.conv_size = conv_size
         self.kernel_size = kernel_size
@@ -139,6 +139,7 @@ class Model(object):
         self.dense_neurons = dense_neurons
         self.dropout = dropout
         self.pool_size = pool_size
+        self.pool_stride = pool_stride
         self.conv_stride = conv_stride
         self.data_format = data_format
         self.num_classes = num_classes
@@ -168,8 +169,8 @@ class Model(object):
                     inputs = conv_layer(inputs=inputs, filters=self.num_filter[i], kernel_size=curr_kernel_size,
                                         strides=self.conv_stride[i], data_format=self.data_format,
                                         layer_name='conv2d'.format(i + 1), act=tf.nn.relu)
-                    inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=self.pool_size[:][i],
-                                                     strides=self.pool_size[:][i])
+                    inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=self.pool_stride[:][i],
+                                                     strides=self.pool_stride[:][i])
                     if quant_act:
                         inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
                                                                               quant_act_format[act_nr][1],
