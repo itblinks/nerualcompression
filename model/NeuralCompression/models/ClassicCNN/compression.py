@@ -51,7 +51,7 @@ def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_p
 
         binary_filter_opt = np.copy(binary_filter)
         stop_cond = False
-        runs = 0
+        runs = 1
         while not stop_cond:
             binary_filter = np.copy(binary_filter_opt)
             a_new = np.linalg.lstsq(binary_filter, weights, rcond=None)[0]
@@ -62,7 +62,7 @@ def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_p
                 weights_new = np.abs(weights_new)
                 weights_new = weights_new - a_new[i]
                 binary_filter_old = binary_filter_opt[:, i]
-            if np.array_equal(binary_filter, binary_filter_opt) or runs > RUN_MAX:
+            if np.array_equal(binary_filter, binary_filter_opt) or runs >= RUN_MAX:
                 stop_cond = True
             else:
                 runs += 1
