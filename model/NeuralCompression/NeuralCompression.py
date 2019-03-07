@@ -11,10 +11,9 @@ import csv
 batch_size = 32
 buffer_size = 180000
 num_epochs = 40
-train = True
-eval_quant = False
+train = False
+eval_quant = True
 k = 1
-
 
 def main():
     # import yaml config file to set up network
@@ -40,7 +39,15 @@ def main():
 
     # print a hash of the configuration
     hashfun = hashlib.sha1()
-    hashfun.update(str(data.get("model")).encode('utf-8'))
+    if parseID:
+        with open(arch_file) as arch_file_txt:
+            for i, line in enumerate(arch_file_txt):
+                if i == ID:
+                    hashfun.update(str(line).encode('utf-8'))
+
+    else:
+        hashfun.update(str(data.get("model")).encode('utf-8'))
+
     digest = hashfun.hexdigest()
     print('The model-config has hash: {}'.format(digest))
 
@@ -112,7 +119,7 @@ def main():
                                                config=my_checkpointing_config, model_dir=model_dir + '_quantized')
             q_param.update(estimator.evaluate(input_eval))
             csv_writer.writerow(q_param)
-
+        csv_file.flush()
     serving_input_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(
         {'image': tf.FixedLenFeature(shape=dataset.train[0]['image'].shape, dtype=tf.float32)})
     estimator.export_saved_model(model_dir + '_quantized', serving_input_fn)
@@ -122,7 +129,7 @@ def main():
     rows = 5
 
     template = ('\n"{}"({:.1f}%)')
-    prediction = estimator.parseNetworkArchitecture(input_fn=input_pred)
+    prediction = estimator.predict(input_fn=input_pred)
 
     annotations = '../../dataset/GTSRB48x48/signnames.csv'
 
