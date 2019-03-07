@@ -8,15 +8,13 @@ def m_fold_binaryconv_tensor_approx_whole(weights, num_binary_filter, paper_appr
     for i in range(np.shape(weights)[-1]):
         weights_3d = weights[:, :, :, i]
         weights_flat = np.ndarray.flatten(weights_3d)
-        weights_estimate_flat, error = m_fold_binary_approx(weights_flat, num_binary_filter, paper_approach,
-                                                            use_pow_two)
+        weights_estimate_flat, error = m_fold_binary_approx(weights=weights_flat, num_binary_filter=num_binary_filter,
+                                                            paper_approach=paper_approach,
+                                                            use_pow_two=use_pow_two, max_num_binary_filter=6)
+        # TODO define max_num_binary_filter from outside
         weights_estimate[:, :, :, i] = np.reshape(weights_estimate_flat, np.shape(weights_3d))
         ss_error += error
     return weights_estimate, ss_error
-
-
-def m_fold_binary_tensor_approx_channel(weights, num_binary_filter, paper_approach=False):
-    return
 
 
 def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_approach=False, use_pow_two=False):
@@ -24,26 +22,31 @@ def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_a
     ss_error = 0
     for i in range(np.shape(weights)[-1]):
         weights_neuron = weights[:, i]
-        weights_estimate_channel, error = m_fold_binary_approx(weights_neuron, num_binary_filter, paper_approach,
-                                                               use_pow_two)
+        weights_estimate_channel, error = m_fold_binary_approx(weights=weights_neuron,
+                                                               num_binary_filter=num_binary_filter,
+                                                               paper_approach=paper_approach,
+                                                               use_pow_two=use_pow_two, max_num_binary_filter=6)
+        #TODO define max_num_binary_filter from outside
         weights_estimate[:, i] = weights_estimate_channel
         ss_error += error
     return weights_estimate, ss_error
 
 
-def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_pow_two=False):
-    M_max = 3
-    RUN_MAX = 1000
-    binary_filter = np.zeros((np.shape(weights)[0], M_max))
+def m_fold_binary_approx(weights, num_binary_filter, max_num_binary_filter, paper_approach=False, use_pow_two=False,
+                         max_opt_runs=1000):
+    binary_filter = np.zeros((np.shape(weights)[0], max_num_binary_filter))
     binary_filter_old = np.ones_like(weights)
     weights_new = np.copy(weights)
 
     if paper_approach:
-        for i in range(num_binary_filter):
-            u_i = -1 + i * 2 / (num_binary_filter - 1)
-            binary_filter[:, i] = np.sign(weights_new - np.mean(weights_new) + u_i * np.std(weights_new))
+        a_new = np.zeros([max_num_binary_filter])
+        for i in range(max_num_binary_filter):
+            binary_filter[:, i] = ((weights_new >= 0).astype(float) * 2 - 1)
+            a_new[i] = np.linalg.lstsq(binary_filter, weights, rcond=None)[0][i]
+            weights_new = weights_new - a_new[i] * binary_filter[:, i]
+
     else:
-        for i in range(M_max):
+        for i in range(max_num_binary_filter):
             binary_filter[:, i] = ((weights_new >= 0).astype(float) * 2 - 1) * binary_filter_old
             weights_new = np.abs(weights_new)
             weights_new = weights_new - np.mean(weights_new)
@@ -57,18 +60,18 @@ def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_p
             a_new = np.linalg.lstsq(binary_filter, weights, rcond=None)[0]
             binary_filter_old = np.ones_like(weights)
             weights_new = np.copy(weights)
-            for i in range(M_max):
+            for i in range(max_num_binary_filter):
                 binary_filter_opt[:, i] = ((weights_new >= 0).astype(float) * 2 - 1) * binary_filter_old
                 weights_new = np.abs(weights_new)
                 weights_new = weights_new - a_new[i]
                 binary_filter_old = binary_filter_opt[:, i]
-            if np.array_equal(binary_filter, binary_filter_opt) or runs >= RUN_MAX:
+            if np.array_equal(binary_filter, binary_filter_opt) or runs >= max_opt_runs:
                 stop_cond = True
             else:
                 runs += 1
 
     if use_pow_two:
-        shift = np.floor(np.log(np.abs(a_new)*4.0/3.0) / np.log(2.0))
+        shift = np.floor(np.log(np.abs(a_new) * 4.0 / 3.0) / np.log(2.0))
         a_new = np.sign(a_new) * np.power(2.0, shift)
 
     weights_estimate = np.zeros_like(weights)
@@ -81,7 +84,7 @@ def m_fold_binary_approx(weights, num_binary_filter, paper_approach=False, use_p
 
 def log_approx(W, result_plots=False):
     W_reshape = np.reshape(W, newshape=[1, -1])
-    shift = np.floor(np.log(np.abs(W_reshape)*4.0/3.0) / np.log(2.0))
+    shift = np.floor(np.log(np.abs(W_reshape) * 4.0 / 3.0) / np.log(2.0))
     W_est = np.sign(W_reshape) * np.power(2.0, shift)
     # illustrative plots
     if result_plots:
@@ -94,5 +97,8 @@ def log_approx(W, result_plots=False):
     SSerror = np.sum(np.power(W_est - W, 2))
     return W_est, SSerror
 
+
 if __name__ == '__main__':
-    m_fold_binary_approx(np.random.rand(1000), 3)
+    np.random.seed(1)
+    m_fold_binary_approx(np.random.rand(1000), max_num_binary_filter=6, num_binary_filter=3, max_opt_runs=1000,
+                         paper_approach=False)
