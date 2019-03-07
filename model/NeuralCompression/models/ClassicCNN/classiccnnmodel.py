@@ -132,7 +132,8 @@ def conv_layer(inputs, filters, kernel_size, strides, data_format, layer_name, p
 class Model(object):
 
     def __init__(self, conv_size, kernel_size, num_filter, pool_size, pool_stride, conv_stride,
-                 data_format, dense_depth, dense_neurons, dropout, num_classes, quant_act_format, ID, parseID, arch_file):
+                 data_format, dense_depth, dense_neurons, dropout, num_classes, quant_act_format, ID, parseID,
+                 arch_file):
         self.__conv_size = conv_size
         self.__kernel_size = kernel_size
         self.__num_filter = num_filter
@@ -148,6 +149,7 @@ class Model(object):
         self.__ID = ID
         self.__parseID = parseID
         self.__arch_file = arch_file
+
     def _model_variable_scope(self):
         """Returns a variable scope that the model should be created under.
         If self.dtype is a castable type, model variable will be created in fp32
@@ -184,12 +186,13 @@ class Model(object):
 
                 # check if layer is conv type
                 if layer['Type'] == 'C':
-                    with tf.name_scope('Convolution'):
-                        with tf.variable_scope('conv_2d_{}'.format(count_layer_types['C'] + 1)):
+                    with tf.name_scope('Convolution/'):
+                        with tf.variable_scope('conv2d_{}'.format(count_layer_types['C'] + 1)):
                             inputs = conv_layer(inputs=inputs, filters=layer['nbr_of_filters'],
                                                 kernel_size=layer['kernel_size'],
                                                 strides=layer['stride'], data_format=tf.float32,
-                                                layer_name='conv2d'.format(i + 1), padding=layer['padding'],
+                                                layer_name='conv2d_{}'.format(count_layer_types['C'] + 1),
+                                                padding=layer['padding'],
                                                 act=tf.nn.relu)
                             count_layer_types['C'] += 1
 
@@ -202,35 +205,36 @@ class Model(object):
 
                 # check if layer is pool type
                 elif layer['Type'] == 'P':
-                    with tf.name_scope('Convolution'):
-                        with tf.variable_scope('conv_2d_{}'.format(count_layer_types['C'] )):
+                    with tf.name_scope('Convolution/'):
+                        with tf.variable_scope('conv2d_{}'.format(count_layer_types['C'])):
                             inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=layer['pool_size'],
                                                              strides=layer['stride'], padding=layer['padding'])
 
                 # check if layer is dropout type
                 elif layer['Type'] == 'Drop':
-                    inputs = tf.layers.dropout(inputs, rate=layer['dropout_rate'],
-                                               training=training == tf.estimator.ModeKeys.TRAIN)
+                    with tf.name_scope('Convolution/'):
+                        inputs = tf.layers.dropout(inputs, rate=layer['dropout_rate'],
+                                                   training=training == tf.estimator.ModeKeys.TRAIN)
 
                 # check if layer is dense type
                 elif layer['Type'] == 'D':
                     # check if it is the last dense layer e.g the logits layer
-                    with tf.name_scope('Dense'):
-                        if i != len(layer_list)-1:
+                    with tf.name_scope('Dense/'):
+                        if i != len(layer_list) - 1:
                             with tf.variable_scope('dense_{}'.format(count_layer_types['D'] + 1)):
-                                    inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
-                                                         output_dim=layer['nbr_of_neurons'],
-                                                         layer_name='dense_{}'.format(count_layer_types['D'] + 1),
-                                                         act=tf.nn.relu)
-                                    count_layer_types['D'] += 1
+                                inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
+                                                     output_dim=layer['nbr_of_neurons'],
+                                                     layer_name='dense_{}'.format(count_layer_types['D'] + 1),
+                                                     act=tf.nn.relu)
+                                count_layer_types['D'] += 1
 
-                                    if layer['hasDropOut']:
-                                        inputs = tf.layers.dropout(inputs, rate=self.__dropout[0],
-                                                                   training=training == tf.estimator.ModeKeys.TRAIN)
+                                if layer['hasDropOut']:
+                                    inputs = tf.layers.dropout(inputs, rate=self.__dropout[0],
+                                                               training=training == tf.estimator.ModeKeys.TRAIN)
                         else:
                             inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
-                                         output_dim=self.__num_classes,
-                                         layer_name='logits', act=tf.identity)
+                                                 output_dim=self.__num_classes,
+                                                 layer_name='logits', act=tf.identity)
 
                 # check if layer is flatten
                 elif layer['Type'] == 'F':
@@ -238,6 +242,8 @@ class Model(object):
                         inputs = tf.layers.flatten(inputs)
                 else:
                     raise NotImplementedError('This layer is not implementet in the layer list: ' + layer['Type'])
+            self.__conv_size = count_layer_types['C']
+            self.__dense_depth = count_layer_types['D']
         else:
             if quant_act:
                 act_nr = 0
@@ -286,7 +292,7 @@ class Model(object):
                                                                           quant_act_format[act_nr][1],
                                                                           quant_act_format[act_nr][2])
                     act_nr += 1
-            return inputs
+        return inputs
 
     def classiccnn_model_fn(self, features, labels, mode, params):
         # This acts as a no-op if the logits are already in fp32 (provided logits are
