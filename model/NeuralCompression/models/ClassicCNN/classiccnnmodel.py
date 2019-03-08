@@ -394,12 +394,18 @@ class Model(object):
                                                                                                    num_binary_filter=
                                                                                                    quant_param[
                                                                                                        'num_bin_filt_conv'],
+                                                                                                   max_num_binary_filter=
+                                                                                                   quant_param[
+                                                                                                       'max_num_bin_filt'],
                                                                                                    paper_approach=
                                                                                                    quant_param[
                                                                                                        'paper_approach'],
                                                                                                    use_pow_two=
                                                                                                    quant_param[
-                                                                                                       'pow_of_two'])
+                                                                                                       'pow_of_two'],
+                                                                                                   max_opt_runs=
+                                                                                                   quant_param[
+                                                                                                       'max_opt_runs'])
                     if quant_param['log_quant'] is True:
                         conv_weights_approx, _ = compression.log_approx(conv_weights, result_plots=False)
                     conv_kernel_tensor[0].load(conv_weights_approx, sess)
@@ -414,12 +420,18 @@ class Model(object):
                                                                                                        num_binary_filter=
                                                                                                        quant_param[
                                                                                                            'num_bin_filt_dense'],
+                                                                                                       max_num_binary_filter=
+                                                                                                       quant_param[
+                                                                                                           'max_num_bin_filt'],
                                                                                                        paper_approach=
                                                                                                        quant_param[
                                                                                                            'paper_approach'],
                                                                                                        use_pow_two=
                                                                                                        quant_param[
-                                                                                                           'pow_of_two'])
+                                                                                                           'pow_of_two'],
+                                                                                                       max_opt_runs=
+                                                                                                       quant_param[
+                                                                                                           'max_opt_runs'])
                     if quant_param['log_quant'] is True:
                         dense_weights_approx, _ = compression.log_approx(dense_weights, result_plots=False)
                     dense_weights_tensor[0].load(dense_weights_approx, sess)
@@ -432,12 +444,18 @@ class Model(object):
                                                                                                     num_binary_filter=
                                                                                                     quant_param[
                                                                                                         'num_bin_filt_dense'],
+                                                                                                    max_num_binary_filter=
+                                                                                                    quant_param[
+                                                                                                        'max_num_bin_filt'],
                                                                                                     paper_approach=
                                                                                                     quant_param[
                                                                                                         'paper_approach'],
                                                                                                     use_pow_two=
                                                                                                     quant_param[
-                                                                                                        'pow_of_two'])
+                                                                                                        'pow_of_two'],
+                                                                                                    max_opt_runs=
+                                                                                                    quant_param[
+                                                                                                        'max_opt_runs'])
                 if quant_param['log_quant'] is True:
                     logits_weights_approx, _ = compression.log_approx(logits_weights)
 

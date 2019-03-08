@@ -95,8 +95,9 @@ def main():
     if eval_quant:
         # create log file
         evaluation_after = {}
-        csv_fieldnames = ['quant_conv', 'quant_dense', 'num_bin_filt_conv', 'num_bin_filt_dense',
-                          'paper_approach', 'pow_of_two', 'bin_quant', 'log_quant', 'accuracy', 'loss', 'global_step']
+        csv_fieldnames = ['quant_conv', 'quant_dense', 'num_bin_filt_conv', 'max_num_bin_filt', 'num_bin_filt_dense',
+                          'paper_approach', 'max_opt_runs', 'pow_of_two', 'bin_quant', 'log_quant', 'accuracy', 'loss',
+                          'global_step']
         csv_file = open(model_dir + '/results.csv', 'w')
         csv_writer = csv.DictWriter(csv_file, fieldnames=csv_fieldnames)
         csv_writer.writeheader()
@@ -105,8 +106,10 @@ def main():
             q_param = {'quant_conv': quant_w_params.get('quant_conv')[i],
                        'quant_dense': quant_w_params.get('quant_dense')[i],
                        'num_bin_filt_conv': quant_w_params.get('num_bin_filt_conv')[i],
+                       'max_num_bin_filt': quant_w_params.get('max_num_bin_filt')[i],
                        'num_bin_filt_dense': quant_w_params.get('num_bin_filt_dense')[i],
                        'paper_approach': quant_w_params.get('paper_approach')[i],
+                       'max_opt_runs': quant_w_params.get('max_opt_runs')[i],
                        'pow_of_two': quant_w_params.get('pow_of_two')[i],
                        'bin_quant': quant_w_params.get('bin_quant')[i],
                        'log_quant': quant_w_params.get('log_quant')[i]

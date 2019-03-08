@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def m_fold_binaryconv_tensor_approx_whole(weights, num_binary_filter, paper_approach=False, use_pow_two=False):
+def m_fold_binaryconv_tensor_approx_whole(weights, num_binary_filter, max_num_binary_filter, paper_approach=False,
+                                          use_pow_two=False, max_opt_runs=1000):
     weights_estimate = np.zeros_like(weights)
     ss_error = 0
     for i in range(np.shape(weights)[-1]):
@@ -10,14 +11,17 @@ def m_fold_binaryconv_tensor_approx_whole(weights, num_binary_filter, paper_appr
         weights_flat = np.ndarray.flatten(weights_3d)
         weights_estimate_flat, error = m_fold_binary_approx(weights=weights_flat, num_binary_filter=num_binary_filter,
                                                             paper_approach=paper_approach,
-                                                            use_pow_two=use_pow_two, max_num_binary_filter=6)
-        # TODO define max_num_binary_filter from outside
+                                                            use_pow_two=use_pow_two,
+                                                            max_num_binary_filter=max_num_binary_filter,
+                                                            max_opt_runs=max_opt_runs)
+
         weights_estimate[:, :, :, i] = np.reshape(weights_estimate_flat, np.shape(weights_3d))
         ss_error += error
     return weights_estimate, ss_error
 
 
-def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_approach=False, use_pow_two=False):
+def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, max_num_binary_filter, paper_approach=False,
+                                             use_pow_two=False, max_opt_runs=1000):
     weights_estimate = np.zeros_like(weights)
     ss_error = 0
     for i in range(np.shape(weights)[-1]):
@@ -25,8 +29,9 @@ def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_a
         weights_estimate_channel, error = m_fold_binary_approx(weights=weights_neuron,
                                                                num_binary_filter=num_binary_filter,
                                                                paper_approach=paper_approach,
-                                                               use_pow_two=use_pow_two, max_num_binary_filter=6)
-        #TODO define max_num_binary_filter from outside
+                                                               use_pow_two=use_pow_two,
+                                                               max_num_binary_filter=max_num_binary_filter,
+                                                               max_opt_runs=max_opt_runs)
         weights_estimate[:, i] = weights_estimate_channel
         ss_error += error
     return weights_estimate, ss_error
@@ -34,6 +39,45 @@ def m_fold_binarydense_tensor_approx_channel(weights, num_binary_filter, paper_a
 
 def m_fold_binary_approx(weights, num_binary_filter, max_num_binary_filter, paper_approach=False, use_pow_two=False,
                          max_opt_runs=1000):
+    """
+    Perform M fold binary approximation.
+
+    This function performs a M fold approximation and calculates a weight estimate when using binary approximation. The
+    estimated weigth can then be loaded by the model to estimate the effect of the binary approximation.
+
+    The function calculates 'max_num_binary_filter' binary filters $B$ containing (1,-1) and real valued stretching
+    factors $alpha$. Afterwards an approximation is calculated by
+
+    $W_approx = a_1*B_1 + a_2*B_2 + ... + a_{num_binary_filter}*B_{num_binary_filter}$
+
+    This means that from the total of 'max_num_binary_filter', only num_binary_filter are going to be used in the
+    approximation
+
+    Parameters
+    ----------
+    weights : ndarray
+        1D vector cntaining all the weights which need to be approximated
+    num_binary_filter : int
+        Integer representing the number of binary filters which are going to be used for the
+        approximation
+    max_num_binary_filter : int
+        The number of calculated binary filters
+    paper_approach : bool
+        OPTIONAL: Use the approach described by Guo et al. in network sketching.
+        Defaults to False
+    use_pow_two : bool
+        OPTIONAL: Round the $\alpha$ values to the next power of two. Defaults to False
+    max_opt_runs : int
+        OTIONAL: Maximum number of optimization runs for the calculation of the \alpha's
+        Defaults to 1000
+
+    Returns
+    -------
+    tuple
+        tuple containing the approximated weights and the squared error compared to the original filter
+
+    """
+
     binary_filter = np.zeros((np.shape(weights)[0], max_num_binary_filter))
     binary_filter_old = np.ones_like(weights)
     weights_new = np.copy(weights)

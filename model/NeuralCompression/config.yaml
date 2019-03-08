@@ -19,6 +19,8 @@ quantization:
     quant_dense:        [True ,True ,True ,True ,True ,True ,True ]
     num_bin_filt_conv:  [0    ,1    ,2    ,3    ,4    ,5    ,6    ]
     num_bin_filt_dense: [0    ,1    ,2    ,3    ,4    ,5    ,6    ]
+    max_num_bin_filt:   [6    ,6    ,6    ,6    ,6    ,6    ,6    ]
+    max_opt_runs:       [1000 ,1000 ,1000 ,1000 ,1000 ,1000 ,1000 ]
     paper_approach:     [False,False,False,False,False,False,False]
     pow_of_two:         [False,False,False,False,False,False,False]
     bin_quant:          [False,True ,True ,True ,True ,True ,True ]
