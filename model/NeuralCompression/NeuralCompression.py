@@ -13,7 +13,8 @@ buffer_size = 180000
 num_epochs = 40
 train = False
 eval_quant = True
-k = 1
+attempt_ID = 1  # Attempt ID number for multiple passes with the same network
+
 
 def main():
     # import yaml config file to set up network
@@ -46,15 +47,19 @@ def main():
                     hashfun.update(str(line).encode('utf-8'))
 
     else:
-        hashfun.update(str(data.get("model")).encode('utf-8'))
+        for i, line in enumerate(data.get("model")):
+            if line != "parseID" and line != "ID" and line != "arch_file":
+                hashfun.update(str(data.get("model").get(line)).encode("utf-8"))
+        hashfun.update(str(data.get("dataset")).encode("utf-8"))
 
     digest = hashfun.hexdigest()
     print('The model-config has hash: {}'.format(digest))
 
-    model = CNNModel(conv_size=conv_size, kernel_size=kernel_size, num_filter=num_filter, pool_size=pool_size, pool_stride = pool_stride,
+    model = CNNModel(conv_size=conv_size, kernel_size=kernel_size, num_filter=num_filter, pool_size=pool_size,
+                     pool_stride=pool_stride,
                      conv_stride=conv_stride, data_format=data_format, dense_depth=dense_depth,
                      dense_neurons=dense_neurons, dropout=dropout_factor, num_classes=num_classes,
-                     quant_act_format=quant_act_format, ID=ID, parseID=parseID, arch_file= arch_file)
+                     quant_act_format=quant_act_format, ID=ID, parseID=parseID, arch_file=arch_file)
 
     feature_column = tf.feature_column.numeric_column(key='image',
                                                       shape=dataset.train[0]['image'].shape[1:])
@@ -62,7 +67,7 @@ def main():
         keep_checkpoint_max=2,  # Retain the 5 most recent checkpoints.
         save_checkpoints_steps=1240
     )
-    model_dir = 'trained/' + dataset.dataset_name + '/' + digest + '_' + str(k)
+    model_dir = 'trained/' + dataset.dataset_name + '/' + digest + '_' + str(attempt_ID)
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -118,7 +123,7 @@ def main():
 
             estimator = tf.estimator.Estimator(model_fn=model.classiccnn_model_fn,
                                                params={'learning_rate': 0.001, 'feature_columns': feature_column,
-                                                       'quant_act': False},
+                                                       'quant_act': True},
                                                config=my_checkpointing_config, model_dir=model_dir + '_quantized')
             q_param.update(estimator.evaluate(input_eval))
             csv_writer.writerow(q_param)
