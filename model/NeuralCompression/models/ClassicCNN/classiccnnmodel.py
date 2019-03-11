@@ -1,4 +1,6 @@
 import tensorflow as tf
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+import numpy as np
 import os, sys, glob
 import re
 import ast
@@ -198,8 +200,8 @@ class Model(object):
 
                             if quant_act:
                                 inputs = tf.quantization.fake_quant_with_min_max_vars(inputs,
-                                                                                      quant_act_format[act_nr][0],
                                                                                       quant_act_format[act_nr][1],
+                                                                                      quant_act_format[act_nr][0],
                                                                                       quant_act_format[act_nr][2])
                                 act_nr += 1
 
@@ -231,10 +233,22 @@ class Model(object):
                                 if layer['hasDropOut']:
                                     inputs = tf.layers.dropout(inputs, rate=self.__dropout[0],
                                                                training=training == tf.estimator.ModeKeys.TRAIN)
+                                if quant_act:
+                                    inputs = tf.quantization.fake_quant_with_min_max_vars(inputs,
+                                                                                          quant_act_format[act_nr][1],
+                                                                                          quant_act_format[act_nr][0],
+                                                                                          quant_act_format[act_nr][2])
+                                    act_nr += 1
                         else:
                             inputs = dense_layer(input_tensor=inputs, input_dim=inputs.get_shape().as_list()[1],
                                                  output_dim=self.__num_classes,
                                                  layer_name='logits', act=tf.identity)
+                            if quant_act:
+                                inputs = tf.quantization.fake_quant_with_min_max_vars(inputs,
+                                                                                      quant_act_format[act_nr][1],
+                                                                                      quant_act_format[act_nr][0],
+                                                                                      quant_act_format[act_nr][2])
+                                act_nr += 1
 
                 # check if layer is flatten
                 elif layer['Type'] == 'F':
@@ -464,3 +478,65 @@ class Model(object):
             if not os.path.exists(model_dir + '_quantized'):
                 os.mkdir(model_dir + '_quantized')
             saver.save(sess, model_dir + '_quantized/model_quant.ckpt', write_meta_graph=False)
+
+    def auto_quantize_activation(self, model_dir, bit_width):
+
+        # helper function to calculate min and max value
+        def calc_min_max_from_exp(max_exp, min_exp, signed):
+            if signed:
+                max_val = np.power(2.0, (max_exp)) - np.power(2.0, min_exp)
+                min_val = -np.power(2.0, max_exp)
+            else:
+                max_val = np.power(2.0, (max_exp + 1)) - np.power(2.0, min_exp)
+                min_val = 0.0
+            return max_val, min_val
+
+        event_acc = EventAccumulator(model_dir)
+        event_acc.Reload()
+
+        hist_tags = event_acc.Tags()['histograms']
+        quant_act_format = list()
+        for tag in hist_tags:
+            # search for activation in tag
+            if re.search("/activations$", tag):
+                hist = event_acc.Histograms(tag=tag)[0]
+                if hist.histogram_value.min < 0.0:
+                    max_exp = bit_width - 1
+                    min_exp = 0
+                    stop_cond = False
+                    max_val, min_val = calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=True)
+                    while not stop_cond:
+                        if hist.histogram_value.max >= max_val and hist.histogram_value.min >= min_val:
+                            max_exp -= 1
+                            min_exp -= 1
+                            max_val, min_val = calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=True)
+                        else:
+                            stop_cond = True
+                    quant_act_format.append(np.append(
+                        np.array(calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=True)), bit_width))
+                else:
+                    max_exp = bit_width - 1
+                    min_exp = 0
+                    max_val, _ = calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=False)
+                    stop_cond = False
+                    while not stop_cond:
+                        if hist.histogram_value.max <= max_val:
+                            max_exp -= 1
+                            min_exp -= 1
+                            max_val, _ = calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=False)
+                        else:
+                            stop_cond = True
+                    quant_act_format.append(np.append(
+                        np.array(calc_min_max_from_exp(max_exp=max_exp, min_exp=min_exp, signed=False)), bit_width))
+
+        print(quant_act_format)
+        return quant_act_format
+
+
+if __name__ == '__main__':
+    model = Model(conv_size=1, kernel_size=1, num_filter=1, pool_size=1, pool_stride=1,
+                  conv_stride=1, data_format=1, dense_depth=1,
+                  dense_neurons=1, dropout=1, num_classes=1,
+                  quant_act_format=1, ID=1, parseID=1, arch_file=1)
+    model.auto_quantize_activation(model_dir='../../trained/GTSRB48x48/5324f595d7db5ebbe07fb01771d33b2434b62100_1',
+                                   bit_width=8)

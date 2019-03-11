@@ -1,12 +1,12 @@
 #NetworkCompression ConfigFile
 ---
 model:
-  parseID: True
+  parseID: False
   ID: 0
   arch_file: models/architectures/arch_log.txt
   conv_size: 2
   kernel_size: [[7, 7], [4, 4]]
-  num_filter: [48, 250, 250]
+  num_filter: [48, 250]
   pool_size: [[4, 4], [6, 6]]
   pool_stride: [[4, 4], [2, 2]]
   conv_stride: [1, 1]
@@ -25,5 +25,5 @@ quantization:
     pow_of_two:         [False,False,False,False,False,False,False]
     bin_quant:          [False,True ,True ,True ,True ,True ,True ]
     log_quant:          [True ,False,False,False,False,False,False]
-  quant_act_format: [[0.0, 0.99609375, 8],[0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 7.96875, 8], [0.0, 31.875, 8], [-31.75, 32, 8]]
+  quant_act_format:     [[3.984375, 0.      , 8.      ], [3.984375, 0.      , 8.      ],[15.9375,  0.    ,  8.    ], [63.75,  0.  ,  8.  ],[ 63.5, -64. ,   8. ]]
 dataset: GTSRB48x48
