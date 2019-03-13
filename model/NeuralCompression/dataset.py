@@ -15,7 +15,7 @@ def loadGTSRB48x48(raw=False):
         f = open('../../dataset/GTSRB48x48/dataset_GTSRB_original_48_test.h5')
         f.close()
         f = open('../../dataset/GTSRB48x48/signnames.csv')
-        f.close
+        f.close()
     except FileNotFoundError:
         pathlib.Path('../../dataset/GTSRB48x48').mkdir(parents=True, exist_ok=True)
         GTSRB48x48_files = {

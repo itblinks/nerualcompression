@@ -261,8 +261,8 @@ class Model(object):
         else:
             if quant_act:
                 act_nr = 0
-                inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                      quant_act_format[act_nr][1],
+                inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][1],
+                                                                      quant_act_format[act_nr][0],
                                                                       quant_act_format[act_nr][2])
                 act_nr += 1
             with tf.name_scope('Convolution'):
@@ -274,8 +274,8 @@ class Model(object):
                         inputs = tf.layers.max_pooling2d(inputs=inputs, pool_size=self.__pool_stride[:][i],
                                                          strides=self.__pool_stride[:][i])
                         if quant_act:
-                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                                  quant_act_format[act_nr][1],
+                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][1],
+                                                                                  quant_act_format[act_nr][0],
                                                                                   quant_act_format[act_nr][2])
                             act_nr += 1
 
@@ -293,8 +293,8 @@ class Model(object):
                         inputs = tf.layers.dropout(inputs, rate=self.__dropout[i + 1],
                                                    training=training == tf.estimator.ModeKeys.TRAIN)
                         if quant_act:
-                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                                  quant_act_format[act_nr][1],
+                            inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][1],
+                                                                                  quant_act_format[act_nr][0],
                                                                                   quant_act_format[act_nr][2])
                             act_nr += 1
 
@@ -302,8 +302,8 @@ class Model(object):
                                      output_dim=self.__num_classes,
                                      layer_name='logits', act=tf.identity)
                 if quant_act:
-                    inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][0],
-                                                                          quant_act_format[act_nr][1],
+                    inputs = tf.quantization.fake_quant_with_min_max_vars(inputs, quant_act_format[act_nr][1],
+                                                                          quant_act_format[act_nr][0],
                                                                           quant_act_format[act_nr][2])
                     act_nr += 1
         return inputs
