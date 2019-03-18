@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/model/NeuralCompression" isTestSource="false" />
     </content>
     <content url="file:///usr/local/lib/python3.6/dist-packages" />
-    <orderEntry type="jdk" jdkName="Python 3.6 (tf_1.12_fs)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.7 (PycharmProjects)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">

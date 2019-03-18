@@ -1,14 +1,16 @@
-import numpy as np
-import tensorflow as tf
-import re, os
 import copy
 import glob
-import matplotlib.pyplot as plt
+import os
+import re
+import sys
 
-from models.ClassicCNN import compression
+import numpy as np
+import tensorflow as tf
+from graphviz import Graph
 
 model_dir = '../trained/GTSRB48x48/0d2ce453e19aeb755f541df7d319b489724a3578_1'
-
+DEBUG = True
+sys.setrecursionlimit(2000)
 
 def m_fold_binary_approx(weights, num_binary_filter, max_num_binary_filter, paper_approach=False, use_pow_two=False,
                          max_opt_runs=1000):
@@ -155,7 +157,7 @@ def check_cycles(root, prev_root, remaining_children, visited_nodes):
             return False
 
 
-def traverse_single_graph(root, visited_nodes):
+def traverse_single_graph(root, visited_nodes, graph=None):
     remaining_children = copy.copy(root.edges)
     visited_nodes.append(root)
     for x in visited_nodes:
@@ -163,7 +165,11 @@ def traverse_single_graph(root, visited_nodes):
             remaining_children.remove(x)
     while remaining_children:
         child = remaining_children.pop()
-        traverse_single_graph(child, visited_nodes)
+        if graph:
+            graph.edge(str(root.layer_filter_nr), str(child.layer_filter_nr), penwidth="0.1",
+                       xlabel=str(child.layer_filter_nr), fontsize="1")
+
+        traverse_single_graph(child, visited_nodes, graph)
     return visited_nodes
 
 
@@ -173,7 +179,7 @@ def mst(binary_nodes, remaining_nodes):
     else:
         all_min_distance = [x.closest_unused_edge_dist for x in binary_nodes]
         min_distance_node = np.argmin(all_min_distance)
-        cycle_test_binary_nodes = copy.copy(binary_nodes)
+        cycle_test_binary_nodes = copy.deepcopy(binary_nodes)
         cycle_test_parent = cycle_test_binary_nodes[min_distance_node]
         cycle_test_parent.edges.append(cycle_test_parent.closest_unused_edge)
         cycle_test_new_child = cycle_test_parent.edges[-1]
@@ -185,18 +191,26 @@ def mst(binary_nodes, remaining_nodes):
             del binary_nodes
             binary_nodes = cycle_test_binary_nodes
             nodes_in_tree = 0
-            for x in traverse_single_graph(binary_nodes[0], []):
+            for x in traverse_single_graph(cycle_test_parent, []):
                 if x in binary_nodes:
                     nodes_in_tree += 1
-            if nodes_in_tree == len(binary_nodes):
+
+            if DEBUG:
+                if nodes_in_tree >= len(binary_nodes):
+                    g = Graph('G', filename='process.gv', engine='sfdp',
+                              node_attr={'shape': 'point', 'width': '0.005', 'fixedsize': 'true', 'fontsize': '0'})
+                    traverse_single_graph(cycle_test_parent, [], g)
+                    g.view()
+            if nodes_in_tree >= len(binary_nodes):
                 return
 
         else:
+            binary_nodes[min_distance_node].forbidden_edges.append(cycle_test_new_child.layer_filter_nr)
+            binary_nodes[cycle_test_new_child.layer_filter_nr].forbidden_edges.append(cycle_test_parent.layer_filter_nr)
             del cycle_test_binary_nodes
-            binary_nodes[min_distance_node].forbidden_edges.append(min_distance_node)
 
-        update_single_shortest_node(binary_nodes, cycle_test_parent)
-        update_single_shortest_node(binary_nodes, cycle_test_new_child)
+        update_single_shortest_node(binary_nodes, binary_nodes[min_distance_node])
+        update_single_shortest_node(binary_nodes, binary_nodes[cycle_test_new_child.layer_filter_nr])
         mst(binary_nodes, remaining_nodes)
 
 
@@ -207,7 +221,7 @@ def main():
     with tf.Session() as sess:
         saver.restore(sess, os.path.splitext(last_graph)[0])
         conv_kernel_tensor = tf.trainable_variables(
-            scope='conv2d_2')  # first tensor are kernel weights in this model
+            scope='conv2d_1')  # first tensor are kernel weights in this model
         conv_weights = conv_kernel_tensor[0].eval()
         conv_weights_approx = np.copy(conv_weights)
         binary_filter_layer = np.ndarray(np.append(np.shape(conv_weights)[:-1], [6, np.shape(conv_weights)[-1]]))
@@ -227,10 +241,10 @@ def main():
         # calculate the shortest path for each filter
         binary_filter_nodes = []
 
-        for i in range(binary_filter_layer[:, :, :, 1, :].shape[-1]):
-            x = binary_filter_layer[:, :, :, 1, i]
+        for i in range(binary_filter_layer[:, :, :, 5, :].shape[-1]):
+            x = binary_filter_layer[:, :, :, 5, i]
             binary_filter_nodes.append(
-                BinaryFilterNode(binary_filter=x, binary_filter_nr=0, layer_filter_nr=i, edges=[],
+                BinaryFilterNode(binary_filter=x, binary_filter_nr=5, layer_filter_nr=i, edges=[],
                                  closest_unused_edge=[]))
 
         remaining_nodes = copy.copy(binary_filter_nodes)
