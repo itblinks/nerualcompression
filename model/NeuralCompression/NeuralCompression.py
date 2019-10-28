@@ -12,7 +12,7 @@ batch_size = 32
 buffer_size = 180000
 num_epochs = 80
 train = False
-eval_quant = False
+eval_quant = True
 k = 1
 
 def main():
@@ -118,12 +118,12 @@ def main():
     template = ('\n"{}"({:.1f}%)')
     prediction = estimator.predict(input_fn=input_pred)
 
-    annotations = '../../dataset/Wheels_negative_extended/signnames.csv'
+    #annotations = '../../dataset/Wheels_negative_extended/signnames.csv'
 
-    classes = pd.read_csv(annotations)
-    class_names = {}
-    for i, row in classes.iterrows():
-        class_names[str(row[0])] = row[1]
+    #classes = pd.read_csv(annotations)
+    #class_names = {}
+    #for i, row in classes.iterrows():
+     #   class_names[str(row[0])] = row[1]
 
     for pred_dict, i in zip(prediction, range(columns * rows)):
         class_id = pred_dict['classes']

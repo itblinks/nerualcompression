@@ -76,7 +76,8 @@ def loadGTSRB48x48(raw=False):
         test, train = as_image_dataset(x_test_norm_eq, x_train_norm_eq, y_test, y_train, image_shape=[48, 48, 3])
     data_format = 'channels_last'
     num_classes = 43
-    return train, test, data_format, num_classes
+    input_shape = (48,48,3)
+    return train, test, data_format, num_classes, input_shape
 
 
 # define datasets
@@ -91,7 +92,8 @@ def loadMNIST(raw=False):
         test, train = as_image_dataset(x_test, x_train, y_test, y_train, image_shape=[28, 28, 1])
     data_format = 'channels_last'
     num_classes = 10
-    return train, test, data_format, num_classes
+    input_shape = (28, 28, 1)
+    return train, test, data_format, num_classes, input_shape
 
 
 def loadWheels(raw=True):
@@ -111,7 +113,8 @@ def loadWheels(raw=True):
         test, train = as_image_dataset(x_test, x_train, y_test, y_train, image_shape=[64, 64, 1])
     data_format = 'channels_last'
     num_classes = 2
-    return train, test, data_format, num_classes
+    input_shape = (64, 64, 1)
+    return train, test, data_format, num_classes, input_shape
 
 
 def as_image_dataset(x_test, x_train, y_test, y_train, image_shape):
@@ -155,9 +158,9 @@ class Dataset:
         # load the dataset according to the datasetName
         self.dataset_name = dataset_name
         if use_data_api:
-            self.train, self.test, self.data_format, self.num_classes = loaderDictionary(dataset_name)(False)
+            self.train, self.test, self.data_format, self.num_classes, self.input_shape = loaderDictionary(dataset_name)(False)
         else:
-            self.train, self.test, self.data_format, self.num_classes = loaderDictionary(dataset_name)(True)
+            self.train, self.test, self.data_format, self.num_classes, self.input_shape = loaderDictionary(dataset_name)(True)
 
     # Define the training inputs
     def get_train_inputs(self, batch_size, buffer_size, num_epochs):
