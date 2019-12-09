@@ -33,7 +33,7 @@ class BinCNNModel:
 
         with tf.compat.v1.keras.backend.get_session().as_default():
             for curr_layer_idx, curr_layer in enumerate(self.model.layers):
-                if re.findall('binary_convolution', curr_layer.name):
+                if re.findall('BinaryConvolution', curr_layer.__class__.__name__):
                     curr_alpha_fixp_f = alpha_fixp_format.pop(0)
                     curr_bias_fixp_f = bias_fixp_format.pop(0)
                     kernel_width = curr_layer.trainable_variables[0].shape.as_list()[1]
@@ -65,13 +65,13 @@ class BinCNNModel:
                             bin_weight_file.write('\n')
 
                         elif re_al:
-                            alpha_array = (curr_layer_train_var.eval() * 2 ** curr_alpha_fixp_f).astype(np.int)
+                            alpha_array = (np.round(curr_layer_train_var.eval() * 2 ** curr_alpha_fixp_f)).astype(np.int)
                             for alpha_m in np.nditer(alpha_array):
                                 alpha_file.write(str(alpha_m) + ' ')
                             alpha_file.write('\n')
 
                         elif re_bias:
-                            bias_array = (curr_layer_train_var.eval() * 2 ** curr_alpha_fixp_f).astype(np.int)
+                            bias_array = (np.round(curr_layer_train_var.eval() * 2 ** curr_bias_fixp_f)).astype(np.int)
                             for bias_c in np.nditer(bias_array):
                                 bias_file.write(str(bias_c) + ' ')
                             bias_file.write('\n')
@@ -80,7 +80,7 @@ class BinCNNModel:
                     alpha_file.writelines('\n')
                     bias_file.writelines('\n')
 
-                elif re.match('binary_dense', curr_layer.name):
+                elif re.match('BinaryDense', curr_layer.__class__.__name__):
 
                     curr_alpha_fixp_f = alpha_fixp_format.pop(0)
                     curr_bias_fixp_f = bias_fixp_format.pop(0)

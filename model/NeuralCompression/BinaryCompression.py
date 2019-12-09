@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 
 batch_size = 32
 num_epochs = 30
-train = True
-retrain = True
+train = False
+retrain = False
 num_epochs_retrain = 10
-quant = True
+quant = False
 eval_quant = True
 k = 1
 num_bin_filter_conv = 2
@@ -142,7 +142,7 @@ def main():
         print(
             'Final Accuracy on validation after quantization after retraining: {:.2f}'.format(score[-1] * 100))
 
-        bin_net.save_weights_for_FPGA(bin_net_ckpt + '/weights_output/', [8, 8, 8, 8, 8], [7, 7, 7, 7, 7])
+        bin_net.save_weights_for_FPGA(bin_net_ckpt + '/weights_output/', [11, 9, 9, 9, 9], [8, 7, 7, 7, 7])
 
 
 if __name__ == '__main__':
